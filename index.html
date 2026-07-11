@@ -1,0 +1,1414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<title>nuclear.who — Video Editor</title>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+<style>
+  /* ─── RESET & BASE ─────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0a0a0f;
+    --surface:   #12121c;
+    --border:    #2a2a3a;
+    --neon-cyan: #00f5ff;
+    --neon-pink: #ff2d78;
+    --neon-yellow:#ffd700;
+    --neon-green: #39ff14;
+    --neon-purple:#bf5fff;
+    --dim-cyan:  rgba(0,245,255,0.12);
+    --dim-pink:  rgba(255,45,120,0.12);
+    --dim-yellow:rgba(255,215,0,0.10);
+    --dim-green: rgba(57,255,20,0.10);
+    --text:      #e8e8f0;
+    --muted:     #6b6b8a;
+    --pixel:     'Press Start 2P', monospace;
+    --mono:      'Share Tech Mono', monospace;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ─── SCANLINE OVERLAY ─────────────────────────────── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.08) 2px,
+      rgba(0,0,0,0.08) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ─── PIXEL BORDER UTILITY ─────────────────────────── */
+  .pixel-box {
+    border: 2px solid var(--border);
+    box-shadow:
+      4px 0 0 0 var(--border),
+      -4px 0 0 0 var(--border),
+      0 4px 0 0 var(--border),
+      0 -4px 0 0 var(--border);
+    padding: 2rem;
+  }
+
+  .pixel-box-cyan  { border-color: var(--neon-cyan);  box-shadow: 0 0 0 2px var(--neon-cyan),  4px 4px 0 0 var(--neon-cyan); }
+  .pixel-box-pink  { border-color: var(--neon-pink);  box-shadow: 0 0 0 2px var(--neon-pink),  4px 4px 0 0 var(--neon-pink); }
+  .pixel-box-yellow{ border-color: var(--neon-yellow); box-shadow: 0 0 0 2px var(--neon-yellow),4px 4px 0 0 var(--neon-yellow); }
+  .pixel-box-green { border-color: var(--neon-green); box-shadow: 0 0 0 2px var(--neon-green), 4px 4px 0 0 var(--neon-green); }
+  .pixel-box-purple{ border-color: var(--neon-purple); box-shadow: 0 0 0 2px var(--neon-purple),4px 4px 0 0 var(--neon-purple); }
+
+  /* ─── NAVIGATION ───────────────────────────────────── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(10,10,15,0.92);
+    backdrop-filter: blur(6px);
+    border-bottom: 2px solid var(--neon-cyan);
+    padding: 0.75rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  nav .logo {
+    font-family: var(--pixel);
+    font-size: 9px;
+    color: var(--neon-cyan);
+    text-decoration: none;
+    letter-spacing: 0.05em;
+  }
+
+  nav .logo span { color: var(--neon-pink); }
+
+  nav ul {
+    list-style: none;
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  nav ul a {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.15s;
+    letter-spacing: 0.06em;
+  }
+
+  nav ul a:hover { color: var(--neon-yellow); }
+
+  /* ─── HERO / START SCREEN ──────────────────────────── */
+  #hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 6rem 2rem 4rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 50% 50%, rgba(0,245,255,0.06) 0%, transparent 70%),
+      repeating-linear-gradient(90deg, transparent, transparent 40px, rgba(0,245,255,0.015) 40px, rgba(0,245,255,0.015) 41px),
+      repeating-linear-gradient(0deg,  transparent, transparent 40px, rgba(0,245,255,0.015) 40px, rgba(0,245,255,0.015) 41px);
+    pointer-events: none;
+  }
+
+  .hero-eyebrow {
+    font-family: var(--pixel);
+    font-size: 8px;
+    color: var(--neon-green);
+    letter-spacing: 0.2em;
+    margin-bottom: 1.5rem;
+    animation: blink 1.2s step-end infinite;
+  }
+
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:0; } }
+
+  .hero-title {
+    font-family: var(--pixel);
+    font-size: clamp(18px, 4vw, 38px);
+    line-height: 1.6;
+    color: var(--neon-cyan);
+    text-shadow: 0 0 20px rgba(0,245,255,0.4);
+    margin-bottom: 0.5rem;
+  }
+
+  .hero-title .pink  { color: var(--neon-pink);   text-shadow: 0 0 20px rgba(255,45,120,0.4); }
+  .hero-title .yellow{ color: var(--neon-yellow);  text-shadow: 0 0 20px rgba(255,215,0,0.4); }
+
+  .hero-sub {
+    font-family: var(--pixel);
+    font-size: clamp(9px, 1.5vw, 13px);
+    color: var(--neon-purple);
+    margin: 1.5rem 0 2.5rem;
+    letter-spacing: 0.1em;
+  }
+
+  .hero-stats {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 3rem;
+  }
+
+  .stat-block {
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: var(--pixel);
+    font-size: 22px;
+    color: var(--neon-yellow);
+    display: block;
+  }
+
+  .stat-label {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+    margin-top: 0.4rem;
+  }
+
+  .press-start {
+    font-family: var(--pixel);
+    font-size: 10px;
+    color: var(--neon-yellow);
+    border: 2px solid var(--neon-yellow);
+    padding: 0.9rem 2rem;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow: 4px 4px 0 0 rgba(255,215,0,0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    animation: pulse-yellow 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-yellow {
+    0%,100% { box-shadow: 4px 4px 0 0 rgba(255,215,0,0.4); }
+    50%      { box-shadow: 4px 4px 0 0 rgba(255,215,0,0.8); }
+  }
+
+  .press-start:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 0 rgba(255,215,0,0.7);
+    color: var(--neon-yellow);
+  }
+
+  .coins {
+    position: absolute;
+    font-family: var(--pixel);
+    font-size: 9px;
+    color: var(--neon-yellow);
+    opacity: 0.35;
+  }
+
+  /* ─── SECTION WRAPPER ──────────────────────────────── */
+  section {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .section-header {
+    margin-bottom: 3rem;
+  }
+
+  .world-tag {
+    font-family: var(--pixel);
+    font-size: 8px;
+    color: var(--neon-green);
+    letter-spacing: 0.2em;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .section-title {
+    font-family: var(--pixel);
+    font-size: clamp(14px, 2.5vw, 22px);
+    line-height: 1.5;
+    color: var(--text);
+  }
+
+  .section-title .accent-cyan   { color: var(--neon-cyan); }
+  .section-title .accent-pink   { color: var(--neon-pink); }
+  .section-title .accent-yellow { color: var(--neon-yellow); }
+  .section-title .accent-green  { color: var(--neon-green); }
+  .section-title .accent-purple { color: var(--neon-purple); }
+
+  .section-divider {
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, var(--neon-cyan) 0%, transparent 100%);
+    margin: 3rem 0;
+    opacity: 0.4;
+  }
+
+  /* ─── PLAYER BIO ───────────────────────────────────── */
+  #bio .bio-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .bio-text p {
+    margin-bottom: 1rem;
+    color: var(--text);
+    font-size: 14px;
+    line-height: 1.9;
+  }
+
+  .level-bar-wrap {
+    margin-bottom: 1.5rem;
+  }
+
+  .level-label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+
+  .level-bar {
+    height: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .level-fill {
+    height: 100%;
+    position: relative;
+  }
+
+  .level-fill::after {
+    content: '';
+    position: absolute;
+    top: 2px; left: 2px;
+    height: 3px;
+    width: 30%;
+    background: rgba(255,255,255,0.3);
+  }
+
+  /* ─── WORLD CARD ───────────────────────────────────── */
+  .world-card {
+    background: var(--surface);
+    padding: 2rem;
+    margin-bottom: 3rem;
+    position: relative;
+  }
+
+  .world-card .card-badge {
+    font-family: var(--pixel);
+    font-size: 7px;
+    padding: 4px 10px;
+    display: inline-block;
+    margin-bottom: 1.2rem;
+    letter-spacing: 0.1em;
+  }
+
+  .badge-cyan   { background: var(--dim-cyan);   color: var(--neon-cyan);   border: 1px solid var(--neon-cyan); }
+  .badge-pink   { background: var(--dim-pink);   color: var(--neon-pink);   border: 1px solid var(--neon-pink); }
+  .badge-yellow { background: var(--dim-yellow); color: var(--neon-yellow); border: 1px solid var(--neon-yellow); }
+  .badge-purple { background: rgba(191,95,255,0.12); color: var(--neon-purple); border: 1px solid var(--neon-purple); }
+
+  .world-card h3 {
+    font-family: var(--pixel);
+    font-size: clamp(11px, 1.8vw, 16px);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .world-card .card-body {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.9;
+    margin-bottom: 1.5rem;
+    max-width: 680px;
+  }
+
+  .card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .meta-chip {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    letter-spacing: 0.05em;
+  }
+
+  /* ─── VIDEO EMBED PLACEHOLDER ──────────────────────── */
+  .video-placeholder {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--bg);
+    border: 2px dashed var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+    cursor: pointer;
+    transition: border-color 0.2s;
+  }
+
+  .video-placeholder:hover { border-color: var(--neon-cyan); }
+
+  .video-placeholder::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(255,255,255,0.01) 10px,
+      rgba(255,255,255,0.01) 11px
+    );
+  }
+
+  .vp-icon {
+    font-family: var(--pixel);
+    font-size: 28px;
+    line-height: 1;
+  }
+
+  .vp-label {
+    font-family: var(--pixel);
+    font-size: 8px;
+    color: var(--muted);
+    text-align: center;
+    line-height: 2;
+  }
+
+  .vp-label strong {
+    display: block;
+    font-size: 10px;
+    color: var(--neon-cyan);
+    margin-bottom: 0.25rem;
+  }
+
+  .vp-hint {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--border);
+    text-align: center;
+    position: absolute;
+    bottom: 0.75rem;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+  }
+
+  /* Two-col for video + info */
+  .world-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    align-items: start;
+  }
+
+  .world-info { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* ─── ACHIEVEMENTS ─────────────────────────────────── */
+  .achievement {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .ach-icon {
+    font-family: var(--pixel);
+    font-size: 12px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .ach-text {
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+
+  /* ─── INVENTORY / SKILLS ───────────────────────────── */
+  #inventory .inv-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .inv-card {
+    background: var(--surface);
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.15s;
+  }
+
+  .inv-card:hover { transform: translate(-2px, -2px); }
+
+  .inv-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; right: 0;
+    width: 40px; height: 40px;
+    border-top: 2px solid var(--border);
+    border-left: 2px solid var(--border);
+    transform: translate(50%, 50%) rotate(45deg);
+  }
+
+  .inv-icon {
+    font-size: 28px;
+    margin-bottom: 0.75rem;
+    display: block;
+  }
+
+  .inv-name {
+    font-family: var(--pixel);
+    font-size: 9px;
+    color: var(--text);
+    margin-bottom: 0.4rem;
+    letter-spacing: 0.05em;
+  }
+
+  .inv-role {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .inv-bar-wrap { margin-top: auto; }
+
+  /* ─── CONTACT / GAME OVER ──────────────────────────── */
+  #contact {
+    text-align: center;
+    padding: 5rem 2rem 6rem;
+  }
+
+  #contact .end-tag {
+    font-family: var(--pixel);
+    font-size: 8px;
+    color: var(--neon-green);
+    letter-spacing: 0.25em;
+    margin-bottom: 1rem;
+    animation: blink 1.2s step-end infinite;
+  }
+
+  #contact h2 {
+    font-family: var(--pixel);
+    font-size: clamp(16px, 3vw, 28px);
+    color: var(--neon-yellow);
+    text-shadow: 0 0 20px rgba(255,215,0,0.4);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+
+  #contact p {
+    max-width: 560px;
+    margin: 0 auto 2.5rem;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.9;
+  }
+
+  .contact-links {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  .cta-btn {
+    font-family: var(--pixel);
+    font-size: 8px;
+    padding: 0.9rem 1.8rem;
+    border: 2px solid;
+    text-decoration: none;
+    display: inline-block;
+    box-shadow: 4px 4px 0 0;
+    transition: transform 0.1s, box-shadow 0.1s;
+    letter-spacing: 0.07em;
+  }
+
+  .cta-btn:hover {
+    transform: translate(-2px, -2px);
+    box-shadow: 6px 6px 0 0;
+  }
+
+  .cta-cyan   { color: var(--neon-cyan);   border-color: var(--neon-cyan);   box-shadow-color: rgba(0,245,255,0.4); box-shadow: 4px 4px 0 0 rgba(0,245,255,0.4); }
+  .cta-cyan:hover { box-shadow: 6px 6px 0 0 rgba(0,245,255,0.6); }
+
+  .cta-pink   { color: var(--neon-pink);   border-color: var(--neon-pink);   box-shadow: 4px 4px 0 0 rgba(255,45,120,0.4); }
+  .cta-pink:hover { box-shadow: 6px 6px 0 0 rgba(255,45,120,0.6); }
+
+  .cta-yellow { color: var(--neon-yellow); border-color: var(--neon-yellow); box-shadow: 4px 4px 0 0 rgba(255,215,0,0.4); }
+  .cta-yellow:hover { box-shadow: 6px 6px 0 0 rgba(255,215,0,0.6); }
+
+  /* ─── FOOTER ───────────────────────────────────────── */
+  footer {
+    border-top: 2px solid var(--border);
+    padding: 1.5rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  footer span {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+  }
+
+  footer .high-score { color: var(--neon-yellow); }
+
+  /* ─── SCROLLBAR ────────────────────────────────────── */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--neon-cyan); }
+
+  /* ─── RESPONSIVE ───────────────────────────────────── */
+  @media (max-width: 720px) {
+    #bio .bio-grid  { grid-template-columns: 1fr; }
+    .world-layout   { grid-template-columns: 1fr; }
+    nav ul          { display: none; }
+  }
+
+  /* ─── PIXEL CORNERS UTILITY ────────────────────────── */
+  .corner-tl::before,
+  .corner-br::after {
+    content: '■';
+    font-size: 8px;
+    position: absolute;
+  }
+  .corner-tl::before { top: -1px; left: -1px; }
+  .corner-br::after  { bottom: -1px; right: -1px; }
+
+  /* ─── TICKER TAPE ──────────────────────────────────── */
+  .ticker-wrap {
+    overflow: hidden;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 0;
+    background: var(--surface);
+  }
+
+  .ticker-inner {
+    display: flex;
+    gap: 4rem;
+    animation: ticker 28s linear infinite;
+    white-space: nowrap;
+  }
+
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+
+  .ticker-item {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+    letter-spacing: 0.15em;
+    flex-shrink: 0;
+  }
+
+  .ticker-item .dot { color: var(--neon-cyan); margin: 0 0.5rem; }
+
+  /* ─── CUTSCENES LIBRARY ────────────────────────────── */
+  #cutscenes {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 5rem 2rem;
+  }
+
+  .cutscene-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+  }
+
+  .cutscene-tile {
+    background: var(--surface);
+    border: 2px solid var(--border);
+    position: relative;
+    text-decoration: none;
+    display: block;
+    transition: transform 0.12s;
+    overflow: hidden;
+  }
+
+  .cutscene-tile:hover { transform: translate(-3px, -3px); }
+
+  .cutscene-tile.tile-cyan   { box-shadow: 4px 4px 0 0 var(--neon-cyan);   border-color: var(--neon-cyan); }
+  .cutscene-tile.tile-pink   { box-shadow: 4px 4px 0 0 var(--neon-pink);   border-color: var(--neon-pink); }
+  .cutscene-tile.tile-yellow { box-shadow: 4px 4px 0 0 var(--neon-yellow); border-color: var(--neon-yellow); }
+  .cutscene-tile.tile-purple { box-shadow: 4px 4px 0 0 var(--neon-purple); border-color: var(--neon-purple); }
+  .cutscene-tile.tile-green  { box-shadow: 4px 4px 0 0 var(--neon-green);  border-color: var(--neon-green); }
+
+  .cutscene-tile:hover.tile-cyan   { box-shadow: 6px 6px 0 0 var(--neon-cyan); }
+  .cutscene-tile:hover.tile-pink   { box-shadow: 6px 6px 0 0 var(--neon-pink); }
+  .cutscene-tile:hover.tile-yellow { box-shadow: 6px 6px 0 0 var(--neon-yellow); }
+  .cutscene-tile:hover.tile-purple { box-shadow: 6px 6px 0 0 var(--neon-purple); }
+  .cutscene-tile:hover.tile-green  { box-shadow: 6px 6px 0 0 var(--neon-green); }
+
+  /* thumbnail area */
+  .ct-thumb {
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: var(--bg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ct-thumb::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 12px,
+      rgba(255,255,255,0.012) 12px,
+      rgba(255,255,255,0.012) 13px
+    );
+  }
+
+  /* scanline shimmer on hover */
+  .cutscene-tile:hover .ct-thumb::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      180deg,
+      transparent 0%,
+      rgba(255,255,255,0.04) 50%,
+      transparent 100%
+    );
+    animation: ct-scan 0.6s linear infinite;
+  }
+
+  @keyframes ct-scan {
+    from { transform: translateY(-100%); }
+    to   { transform: translateY(100%); }
+  }
+
+  .ct-play {
+    font-family: var(--pixel);
+    font-size: 32px;
+    line-height: 1;
+    position: relative;
+    z-index: 1;
+    transition: transform 0.12s;
+  }
+
+  .cutscene-tile:hover .ct-play { transform: scale(1.15); }
+
+  /* lock overlay */
+  .ct-locked-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10,10,15,0.72);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    z-index: 2;
+  }
+
+  .ct-lock-icon {
+    font-family: var(--pixel);
+    font-size: 22px;
+    color: var(--muted);
+  }
+
+  .ct-lock-label {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+  }
+
+  /* bottom info bar */
+  .ct-info {
+    padding: 0.9rem 1rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .ct-platform-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .ct-platform-badge {
+    font-family: var(--pixel);
+    font-size: 6px;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border: 1px solid;
+  }
+
+  .badge-yt   { color: #ff4444; border-color: #ff4444; background: rgba(255,68,68,0.1); }
+  .badge-ig   { color: var(--neon-pink); border-color: var(--neon-pink); background: var(--dim-pink); }
+  .badge-orig { color: var(--neon-green); border-color: var(--neon-green); background: var(--dim-green); }
+
+  .ct-slot-num {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--muted);
+    margin-left: auto;
+    letter-spacing: 0.08em;
+  }
+
+  .ct-title {
+    font-family: var(--pixel);
+    font-size: 8px;
+    line-height: 1.7;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+
+  .ct-sub {
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* "ADD MORE" slot */
+  .cutscene-tile.tile-add {
+    border: 2px dashed var(--border);
+    box-shadow: none;
+    opacity: 0.4;
+    cursor: default;
+    pointer-events: none;
+  }
+
+  .ct-add-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    aspect-ratio: 16/9;
+    padding: 1.5rem;
+  }
+
+  .ct-add-icon {
+    font-family: var(--pixel);
+    font-size: 22px;
+    color: var(--border);
+  }
+
+  .ct-add-label {
+    font-family: var(--pixel);
+    font-size: 7px;
+    color: var(--border);
+    letter-spacing: 0.12em;
+    text-align: center;
+    line-height: 2;
+  }
+
+  @media (max-width: 720px) {
+    .cutscene-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── NAV ─────────────────────────────────────────────── -->
+<nav>
+  <a href="#hero" class="logo">[ <span>nuclear.who</span> ]</a>
+  <ul>
+    <li><a href="#bio">PLAYER_BIO</a></li>
+    <li><a href="#worlds">WORK</a></li>
+    <li><a href="#cutscenes">EXTRAS</a></li>
+    <li><a href="#inventory">INVENTORY</a></li>
+    <li><a href="#contact">INSERT_COIN</a></li>
+  </ul>
+</nav>
+
+<!-- ── HERO / START SCREEN ────────────────────────────── -->
+<div id="hero">
+  <span class="coins" style="top:18%;left:8%">★★★</span>
+  <span class="coins" style="top:72%;right:10%">◆◆◆</span>
+  <span class="coins" style="top:30%;right:6%">♦</span>
+  <span class="coins" style="bottom:20%;left:12%">★</span>
+
+  <p class="hero-eyebrow">▶ PLAYER ONE — READY</p>
+
+  <h1 class="hero-title">
+    <span class="yellow">6 YEARS.</span><br>
+    <span class="pink">ZERO TUTORIALS.</span><br>
+    ONE LETHAL<br>
+    EDITOR.
+  </h1>
+
+  <p class="hero-sub">// @nuclear.who — cuts that hit like a final boss //</p>
+
+  <div class="hero-stats">
+    <div class="stat-block">
+      <span class="stat-num">06</span>
+      <span class="stat-label">YRS XP</span>
+    </div>
+    <div class="stat-block">
+      <span class="stat-num">∞</span>
+      <span class="stat-label">RENDERS</span>
+    </div>
+    <div class="stat-block">
+      <span class="stat-num">3</span>
+      <span class="stat-label">WEAPONS</span>
+    </div>
+    <div class="stat-block">
+      <span class="stat-num">★★★</span>
+      <span class="stat-label">RATING</span>
+    </div>
+  </div>
+
+  <a href="#worlds" class="press-start">▶ PRESS START</a>
+</div>
+
+<!-- ── TICKER TAPE ────────────────────────────────────── -->
+<div class="ticker-wrap">
+  <div class="ticker-inner">
+    <span class="ticker-item">DaVinci Resolve<span class="dot">◆</span></span>
+    <span class="ticker-item">Premiere Pro<span class="dot">◆</span></span>
+    <span class="ticker-item">Raw Shooting<span class="dot">◆</span></span>
+    <span class="ticker-item">NASA Space Apps 2026<span class="dot">◆</span></span>
+    <span class="ticker-item">Society President<span class="dot">◆</span></span>
+    <span class="ticker-item">@nuclear.who<span class="dot">◆</span></span>
+    <span class="ticker-item">AmbuRakshak<span class="dot">◆</span></span>
+    <span class="ticker-item">Color Grading<span class="dot">◆</span></span>
+    <span class="ticker-item">Startup Content<span class="dot">◆</span></span>
+    <span class="ticker-item">DaVinci Resolve<span class="dot">◆</span></span>
+    <span class="ticker-item">Premiere Pro<span class="dot">◆</span></span>
+    <span class="ticker-item">Raw Shooting<span class="dot">◆</span></span>
+    <span class="ticker-item">NASA Space Apps 2026<span class="dot">◆</span></span>
+    <span class="ticker-item">Society President<span class="dot">◆</span></span>
+    <span class="ticker-item">@nuclear.who<span class="dot">◆</span></span>
+    <span class="ticker-item">AmbuRakshak<span class="dot">◆</span></span>
+    <span class="ticker-item">Color Grading<span class="dot">◆</span></span>
+    <span class="ticker-item">Startup Content<span class="dot">◆</span></span>
+  </div>
+</div>
+
+<!-- ── PLAYER BIO ──────────────────────────────────────── -->
+<section id="bio">
+  <div class="section-header">
+    <span class="world-tag">// PLAYER_BIO.exe</span>
+    <h2 class="section-title">
+      The <span class="accent-cyan">Character</span> Sheet
+    </h2>
+  </div>
+
+  <div class="bio-grid">
+    <div class="bio-text">
+      <p>
+        Started editing the same way most stories begin — for the love of it.
+        No formal training, no hand-holding, just a timeline, a vision, and
+        an unhealthy number of late nights.
+      </p>
+      <p>
+        Six years later, the hobby became the weapon. Commercial cuts, hackathon
+        reels, cinematic edits that hit different — all stacked under the same alias:
+        <strong style="color:var(--neon-pink)">@nuclear.who</strong>.
+      </p>
+      <p>
+        Served as Kinesis Technical Society President, Lead Editor, and the person your
+        director calls when the deadline is tomorrow and the footage is a mess.
+      </p>
+    </div>
+
+    <div class="bio-levels pixel-box pixel-box-cyan">
+      <p style="font-family:var(--pixel);font-size:8px;color:var(--neon-cyan);margin-bottom:1.2rem;letter-spacing:.1em;">SKILL TREE</p>
+
+      <div class="level-bar-wrap">
+        <div class="level-label"><span>Color Grading</span><span style="color:var(--neon-cyan)">MAX</span></div>
+        <div class="level-bar">
+          <div class="level-fill" style="width:97%;background:var(--neon-cyan)"></div>
+        </div>
+      </div>
+
+      <div class="level-bar-wrap">
+        <div class="level-label"><span>Cinematic Pacing</span><span style="color:var(--neon-pink)">LVL 9</span></div>
+        <div class="level-bar">
+          <div class="level-fill" style="width:90%;background:var(--neon-pink)"></div>
+        </div>
+      </div>
+
+      <div class="level-bar-wrap">
+        <div class="level-label"><span>Commercial Editing</span><span style="color:var(--neon-green)">LVL 8</span></div>
+        <div class="level-bar">
+          <div class="level-fill" style="width:80%;background:var(--neon-green)"></div>
+        </div>
+      </div>
+
+      <div class="level-bar-wrap">
+        <div class="level-label"><span>Shooting / Direction</span><span style="color:var(--neon-purple)">LVL 7</span></div>
+        <div class="level-bar">
+          <div class="level-fill" style="width:74%;background:var(--neon-purple)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div style="max-width:1100px;margin:0 auto;padding:0 2rem">
+  <div class="section-divider"></div>
+</div>
+
+<!-- ── SELECT STAGE ───────────────────────────────────── -->
+<section id="worlds">
+  <div class="section-header">
+    <span class="world-tag">// SELECT_STAGE (Experience)</span>
+    <h2 class="section-title">The <span class="accent-yellow">Work</span> — 4 Worlds Cleared</h2>
+  </div>
+
+  <!-- WORLD 1 -->
+  <div class="world-card pixel-box-cyan" id="world1">
+    <span class="card-badge badge-cyan">WORLD 1 — COMMERCIAL ARC</span>
+    <div class="world-info">
+      <h3 style="color:var(--neon-cyan)">Real Brief. Real Brand. Shipped Clean.</h3>
+      <p class="card-body" style="max-width:100%">
+        Video Editor, AmbuRakshak — 2023. Short engagement, real deliverables.
+        Produced ads and reels for a live healthcare startup — content that went
+        out under an actual brand, not a spec brief.
+        Worked to a real deadline, handed off clean, no revisions chasing me down.
+      </p>
+      <div class="card-meta">
+        <span class="meta-chip">INTERNSHIP</span>
+        <span class="meta-chip">AD PRODUCTION</span>
+        <span class="meta-chip">REELS</span>
+        <span class="meta-chip">2023</span>
+      </div>
+      <div>
+        <div class="achievement">
+          <span class="ach-icon" style="color:var(--neon-cyan)">◆</span>
+          <span class="ach-text">Produced ad and reel content for a live healthcare startup brand</span>
+        </div>
+        <div class="achievement">
+          <span class="ach-icon" style="color:var(--neon-cyan)">◆</span>
+          <span class="ach-text">Worked to a client brief with real delivery expectations</span>
+        </div>
+        <div class="achievement">
+          <span class="ach-icon" style="color:var(--neon-cyan)">◆</span>
+          <span class="ach-text">Short engagement — clean output — zero drama</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORLD 2 -->
+  <div class="world-card pixel-box-yellow" id="world2">
+    <span class="card-badge badge-yellow">WORLD 2 — HACKATHON BOSS LEVEL</span>
+    <div class="world-layout">
+      <div class="world-info">
+        <h3 style="color:var(--neon-yellow)">NASA Space Apps 2024 — Lead Editor &amp; Videographer</h3>
+        <p class="card-body">
+          Lead Editor &amp; Videographer for NASA Space Apps Challenge Ghaziabad 2024,
+          hosted by the college society where I also served as President. Meaning:
+          I ran the event, I shot the event, and I edited the event.
+          One person. Every hat. Zero crises.
+        </p>
+        <p class="card-body" style="margin-top:-0.5rem">
+          The output? A high-energy hackathon reel that captures 48 hours of
+          teams solving real NASA problem statements — cut to feel like
+          the opening cinematic of a space game you'd actually buy.
+        </p>
+        <div class="card-meta">
+          <span class="meta-chip">HACKATHON</span>
+          <span class="meta-chip">EVENT SHOOT</span>
+          <span class="meta-chip">LEAD EDITOR</span>
+          <span class="meta-chip">SOCIETY PRESIDENT</span>
+          <span class="meta-chip">2026</span>
+        </div>
+        <div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-yellow)">★</span>
+            <span class="ach-text">Sole editor + shooter for a NASA-sanctioned international event</span>
+          </div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-yellow)">★</span>
+            <span class="ach-text">Simultaneously held organizational responsibility as Society President</span>
+          </div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-yellow)">★</span>
+            <span class="ach-text">High-energy cinematic cut — event doc meets launch trailer</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <a href="https://www.instagram.com/kinesis_technical_society/reel/DBA9o4mtvpR/" target="_blank" class="video-placeholder" style="text-decoration:none">
+          <span class="vp-icon" style="color:var(--neon-yellow)">▶</span>
+          <div class="vp-label">
+            <strong style="color:var(--neon-yellow)">NASA Space Apps — Event Reel</strong>
+            Click to watch on Instagram
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORLD 3 -->
+  <div class="world-card pixel-box-pink" id="world3">
+    <span class="card-badge badge-pink">WORLD 3 — THE CINEMATIC UNDERGROUND</span>
+    <div class="world-layout">
+      <div>
+        <a href="https://www.instagram.com/kinesis_technical_society/reel/DAJBoy7NJor/" target="_blank" class="video-placeholder" style="text-decoration:none">
+          <span class="vp-icon" style="color:var(--neon-pink)">▶</span>
+          <div class="vp-label">
+            <strong style="color:var(--neon-pink)">@nuclear.who — Signature Edit</strong>
+            Click to watch on Instagram
+          </div>
+        </a>
+      </div>
+      <div class="world-info">
+        <h3 style="color:var(--neon-pink)">@nuclear.who — Pure, Uncut Cinematic</h3>
+        <p class="card-body">
+          No client briefs. No brand guidelines. No compromises.
+          <strong style="color:var(--neon-pink)">@nuclear.who</strong> is the personal
+          creative outlet — a dedicated Instagram channel built purely around
+          high-end, high-energy cinematic edits.
+        </p>
+        <p class="card-body" style="margin-top:-0.5rem">
+          This is where the real skill shows. Every cut is a deliberate choice.
+          Every grade is intentional. This isn't content — it's craft.
+        </p>
+        <div class="card-meta">
+          <span class="meta-chip">PERSONAL BRAND</span>
+          <span class="meta-chip">CINEMATIC EDITS</span>
+          <span class="meta-chip">INSTAGRAM</span>
+          <span class="meta-chip">ONGOING</span>
+        </div>
+        <div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-pink)">♦</span>
+            <span class="ach-text">High-energy cinematic style — not a trend, a signature</span>
+          </div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-pink)">♦</span>
+            <span class="ach-text">100% self-directed creative work — no guardrails</span>
+          </div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-pink)">♦</span>
+            <span class="ach-text">Where 6 years of instinct becomes a body of work</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WORLD 4 -->
+  <div class="world-card pixel-box-purple" id="world4">
+    <span class="card-badge badge-purple">WORLD 4 — CREATIVE COMMAND</span>
+    <div class="world-layout">
+      <div class="world-info">
+        <h3 style="color:var(--neon-purple)">The President Who Didn't Outsource the Creative</h3>
+        <p class="card-body">
+          Society President — and also the one behind the camera.
+          And also in the edit suite. The society's entire media output —
+          event coverage, promos, social content — was conceived and
+          executed by the same person signing off on the logistics.
+        </p>
+        <p class="card-body" style="margin-top:-0.5rem">
+          Set the visual standards. Enforced them. Shot to them. Edited to them.
+          No handoff to a separate creative team — because there wasn't one,
+          and honestly, it didn't need one.
+        </p>
+        <div class="card-meta">
+          <span class="meta-chip">SOCIETY PRESIDENT</span>
+          <span class="meta-chip">CREATIVE DIRECTION</span>
+          <span class="meta-chip">EVENT COVERAGE</span>
+          <span class="meta-chip">SOCIAL CONTENT</span>
+        </div>
+        <div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-purple)">■</span>
+            <span class="ach-text">Defined the visual identity and content direction for the society's entire media presence</span>
+          </div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-purple)">■</span>
+            <span class="ach-text">Shot and edited event coverage, promos, and social assets end-to-end</span>
+          </div>
+          <div class="achievement">
+            <span class="ach-icon" style="color:var(--neon-purple)">■</span>
+            <span class="ach-text">Executive authority + hands-on execution — same person, same week</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <a href="https://www.instagram.com/kinesis_technical_society/reel/DAJBoy7NJor/" target="_blank" class="video-placeholder" style="text-decoration:none">
+          <span class="vp-icon" style="color:var(--neon-purple)">▶</span>
+          <div class="vp-label">
+            <strong style="color:var(--neon-purple)">Society Media — Showreel</strong>
+            Click to watch on Instagram
+          </div>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDE QUEST -->
+  <div class="world-card" style="border:2px solid var(--border);box-shadow:4px 4px 0 0 var(--border)" id="sidequest">
+    <span class="card-badge" style="background:var(--dim-green);color:var(--neon-green);border:1px solid var(--neon-green)">SIDE QUEST — FREELANCE</span>
+    <div class="world-info">
+      <h3 style="color:var(--neon-green)">Startup Social Content — Posts &amp; Reels</h3>
+      <p class="card-body" style="max-width:100%">
+        Produced posts and reels for an early-stage startup's social page.
+        No massive budget, no big team — just a brief, a deadline, and content
+        that needed to look like it came from a brand that knew what it was doing.
+        It did.
+      </p>
+      <div class="card-meta">
+        <span class="meta-chip">FREELANCE</span>
+        <span class="meta-chip">SOCIAL CONTENT</span>
+        <span class="meta-chip">REELS</span>
+        <span class="meta-chip">STARTUP</span>
+      </div>
+      <div>
+        <div class="achievement">
+          <span class="ach-icon" style="color:var(--neon-green)">▸</span>
+          <span class="ach-text">Social-first content — reels and posts built for the feed, not the portfolio</span>
+        </div>
+        <div class="achievement">
+          <span class="ach-icon" style="color:var(--neon-green)">▸</span>
+          <span class="ach-text">Independent delivery — brief in, content out, no handholding required</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</section>
+
+<div style="max-width:1100px;margin:0 auto;padding:0 2rem">
+  <div class="section-divider" style="background:linear-gradient(90deg,var(--neon-yellow) 0%,transparent 100%)"></div>
+</div>
+
+<!-- ── UNLOCKABLE CUTSCENES LIBRARY ──────────────────────
+     To add a new video: copy any .cutscene-tile block,
+     swap the href, title, subtitle, slot number, and tile-* color class.
+     Locked slots: set pointer-events:none + opacity:0.5 and add .ct-locked-overlay inside .ct-thumb.
+──────────────────────────────────────────────────────── -->
+<section id="cutscenes">
+  <div class="section-header">
+    <span class="world-tag">// BONUS_STAGE — UNLOCKABLE_CUTSCENES</span>
+    <h2 class="section-title">The <span class="accent-pink">Vault</span> — All Cuts, No Filler</h2>
+  </div>
+
+  <div class="cutscene-grid">
+
+    <!-- SLOT 01 — NASA Space Apps Reel -->
+    <a href="https://www.youtube.com/watch?v=dScbobN9PyI" target="_blank" class="cutscene-tile tile-yellow">
+      <div class="ct-thumb">
+        <span class="ct-play" style="color:var(--neon-yellow)">▶</span>
+      </div>
+      <div class="ct-info">
+        <div class="ct-platform-row">
+          <span class="ct-platform-badge badge-ig">IG</span>
+          <span class="ct-platform-badge badge-orig">EVENT REEL</span>
+          <span class="ct-slot-num">SLOT 01</span>
+        </div>
+        <p class="ct-title">Adios Seniors! - A Farewell Video</p>
+        <p class="ct-sub">Shot and Edited By Me · 2024</p>
+      </div>
+    </a>
+
+    <!-- SLOT 02 — @nuclear.who Signature Edit -->
+    <a href="https://www.instagram.com/p/DZ9xBM9MUHM/" target="_blank" class="cutscene-tile tile-pink">
+      <div class="ct-thumb">
+        <span class="ct-play" style="color:var(--neon-pink)">▶</span>
+      </div>
+      <div class="ct-info">
+        <div class="ct-platform-row">
+          <span class="ct-platform-badge badge-ig">IG</span>
+          <span class="ct-platform-badge" style="color:var(--neon-pink);border-color:var(--neon-pink);background:var(--dim-pink);font-family:var(--pixel);font-size:6px;padding:3px 8px;border:1px solid;">CINEMATIC</span>
+          <span class="ct-slot-num">SLOT 02</span>
+        </div>
+        <p class="ct-title">Typography Edit 2</p>
+        <p class="ct-sub">Cinematic Edit </p>
+      </div>
+    </a>
+
+    <!-- SLOT 03 — Society Showreel -->
+    <a href="https://www.instagram.com/nuclear.who/reel/DFTFgWjsC6y/" target="_blank" class="cutscene-tile tile-purple">
+      <div class="ct-thumb">
+        <span class="ct-play" style="color:var(--neon-purple)">▶</span>
+      </div>
+      <div class="ct-info">
+        <div class="ct-platform-row">
+          <span class="ct-platform-badge badge-ig">IG</span>
+          <span class="ct-platform-badge" style="color:var(--neon-purple);border-color:var(--neon-purple);background:rgba(191,95,255,0.12);font-family:var(--pixel);font-size:6px;padding:3px 8px;border:1px solid;">SHOWREEL</span>
+          <span class="ct-slot-num">SLOT 03</span>
+        </div>
+        <p class="ct-title">Typography — Showreel</p>
+        <p class="ct-sub"></p>
+      </div>
+    </a>
+     <a href="https://www.instagram.com/p/DZ9_xL8hGUL/" target="_blank" class="cutscene-tile tile-purple">
+      <div class="ct-thumb">
+        <span class="ct-play" style="color:var(--neon-purple)">▶</span>
+      </div>
+      <div class="ct-info">
+        <div class="ct-platform-row">
+          <span class="ct-platform-badge badge-ig">IG</span>
+          <span class="ct-platform-badge" style="color:var(--neon-purple);border-color:var(--neon-purple);background:rgba(191,95,255,0.12);font-family:var(--pixel);font-size:6px;padding:3px 8px;border:1px solid;">SHOWREEL</span>
+          <span class="ct-slot-num">SLOT 03</span>
+        </div>
+        <p class="ct-title">Cinematic Edit — Showreel</p>
+        <p class="ct-sub"></p>
+      </div>
+    </a>
+  </div>
+</section>
+
+<div style="max-width:1100px;margin:0 auto;padding:0 2rem">
+  <div class="section-divider" style="background:linear-gradient(90deg,var(--neon-pink) 0%,transparent 100%)"></div>
+</div>
+
+<!-- ── INVENTORY / WEAPONS ────────────────────────────── -->
+<section id="inventory">
+  <div class="section-header">
+    <span class="world-tag">// INVENTORY.exe — WEAPON LOADOUT</span>
+    <h2 class="section-title">
+      The <span class="accent-green">Arsenal</span>
+    </h2>
+  </div>
+
+  <div class="inv-grid">
+
+    <div class="inv-card pixel-box-cyan">
+      <span class="inv-icon">⚡</span>
+      <p class="inv-name">DaVinci Resolve</p>
+      <p class="inv-role">Primary Weapon — Grading &amp; Cutting</p>
+      <div class="inv-bar-wrap">
+        <div class="level-label"><span style="color:var(--muted)">Mastery</span><span style="color:var(--neon-cyan)">MAX LVL</span></div>
+        <div class="level-bar">
+          <div class="level-fill" style="width:97%;background:var(--neon-cyan)"></div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:0.75rem;line-height:1.7">
+        Color science, node-based grading, Fusion VFX, multicam. This is the main rig. Everything else is secondary.
+      </p>
+    </div>
+
+    <div class="inv-card pixel-box-pink">
+      <span class="inv-icon">🎬</span>
+      <p class="inv-name">Premiere Pro</p>
+      <p class="inv-role">Secondary Weapon — Client Workflow</p>
+      <div class="inv-bar-wrap">
+        <div class="level-label"><span style="color:var(--muted)">Mastery</span><span style="color:var(--neon-pink)">LVL 8</span></div>
+        <div class="level-bar">
+          <div class="level-fill" style="width:84%;background:var(--neon-pink)"></div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:0.75rem;line-height:1.7">
+        Used when clients need a format they can touch. Fast turnaround, clean sequence handoffs, no drama.
+      </p>
+    </div>
+
+    <div class="inv-card pixel-box-yellow">
+      <span class="inv-icon">✨</span>
+      <p class="inv-name">After Effects</p>
+      <p class="inv-role">Special Move — Motion &amp; VFX</p>
+      <div class="inv-bar-wrap">
+        <div class="level-label"><span style="color:var(--muted)">Mastery</span><span style="color:var(--neon-yellow)">LVL 7</span></div>
+        <div class="level-bar">
+          <div class="level-fill" style="width:76%;background:var(--neon-yellow)"></div>
+        </div>
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:0.75rem;line-height:1.7">
+        Motion graphics, title sequences, compositing. When the edit needs to move like it means it — this is the switch.
+      </p>
+    </div>
+
+  </div>
+
+  <div style="margin-top:2rem;display:flex;flex-wrap:wrap;gap:0.75rem">
+    <span style="font-family:var(--pixel);font-size:7px;color:var(--muted);margin-right:0.5rem;align-self:center">ALSO CARRIES:</span>
+    <span class="meta-chip">Color Theory</span>
+    <span class="meta-chip">Audio Sync</span>
+    <span class="meta-chip">Sound Design Basics</span>
+    <span class="meta-chip">Multicam Editing</span>
+    <span class="meta-chip">Event Shooting</span>
+    <span class="meta-chip">Social-First Formats</span>
+    <span class="meta-chip">Storytelling Structure</span>
+    <span class="meta-chip">Reels / Shorts</span>
+  </div>
+</section>
+
+<div style="max-width:1100px;margin:0 auto;padding:0 2rem">
+  <div class="section-divider" style="background:linear-gradient(90deg,var(--neon-pink) 0%,transparent 100%)"></div>
+</div>
+
+<!-- ── CONTACT / INSERT COIN ──────────────────────────── -->
+<section id="contact">
+  <p class="end-tag">▶ INSERT COIN TO CONTINUE</p>
+  <h2>Got a Project?<br>Let's Build Something<br><span style="color:var(--neon-cyan)">Worth Watching.</span></h2>
+  <p>
+    Commercial cuts, hackathon reels, cinematic edits, event coverage —
+    if it needs to look like it was made with actual intention,
+    you know where to find me.
+  </p>
+  <div class="contact-links">
+    <a href="mailto:your@email.com" class="cta-btn cta-cyan">✉ EMAIL ME</a>
+    <a href="https://instagram.com/nuclear.who" target="_blank" class="cta-btn cta-pink">◆ @nuclear.who</a>
+  </div>
+</section>
+
+<!-- ── FOOTER ─────────────────────────────────────────── -->
+<footer>
+  <span>© 2026 — @nuclear.who</span>
+  <span class="high-score">HIGH SCORE: 999,999 ★</span>
+  <span>MADE WITH DAVINCI + CAFFEINE</span>
+</footer>
+
+</body>
+</html>
